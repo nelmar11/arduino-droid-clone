@@ -10,46 +10,54 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.tooling.preview.Preview
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
@@ -79,26 +87,56 @@ fun ArduinoDroidApp() {
         "Mega 2560" to "ATmega2560"
     )
 
-    val files = listOf("sketch.ino", "README.md", "board.json")
+    val files = listOf("sketch.ino", "mosfet_driver.ino", "README.md")
     var selectedBoard by remember { mutableStateOf(boards.first().first) }
-    var ledOn by remember { mutableStateOf(false) }
+    var selectedFileTab by remember { mutableIntStateOf(0) }
+    var led13On by remember { mutableStateOf(false) }
+    var led12On by remember { mutableStateOf(false) }
     var buttonPressed by remember { mutableStateOf(false) }
+    var mosfetGateOn by remember { mutableStateOf(false) }
     var potValue by remember { mutableFloatStateOf(58f) }
-    var code by remember { mutableStateOf("const int ledPin = 13;\n\nvoid setup() {\n  pinMode(ledPin, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  digitalWrite(ledPin, HIGH);\n  delay(500);\n  digitalWrite(ledPin, LOW);\n  delay(500);\n}\n") }
+    var tempValue by remember { mutableFloatStateOf(24f) }
+    var servoAngle by remember { mutableFloatStateOf(90f) }
+
+    val mosfetLoadOn = mosfetGateOn && potValue > 25f
+
+    val arduinoCode = """const int LED_PIN = 13;
+const int MOSFET_GATE = 9;
+const int BUTTON_PIN = 2;
+const int POT_PIN = A0;
+
+void setup() {
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(MOSFET_GATE, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  int sensor = analogRead(POT_PIN);
+  int btnState = digitalRead(BUTTON_PIN);
+  bool gate = (sensor > 300) || btnState;
+
+  analogWrite(MOSFET_GATE, gate ? 255 : 0);
+  digitalWrite(LED_PIN, gate ? HIGH : LOW);
+
+  Serial.print("POT:");
+  Serial.println(sensor);
+  delay(100);
+}"""
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color(0xFF08111D)
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Row(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .width(280.dp)
+                    .fillMaxHeight()
                     .background(Color(0xFF0A1420))
                     .padding(16.dp)
-                    .weight(0.9f),
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Top
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -107,41 +145,43 @@ fun ArduinoDroidApp() {
                             .size(44.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(
-                                brush = Brush.linearGradient(
+                                Brush.linearGradient(
                                     colors = listOf(Color(0xFF52D1FF), Color(0xFF5D7BFF))
                                 )
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("A", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("A", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     }
-                    Spacer(modifier = Modifier.size(12.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(
-                            text = "Mobile IDE",
-                            color = Color(0xFF8EA6D6),
-                            fontSize = 10.sp,
-                            letterSpacing = 0.8.sp,
-                        )
-                        Text("ArduinoDroid Lite", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("Mobile IDE", color = Color(0xFF8EA6D6), fontSize = 10.sp, letterSpacing = 0.8.sp)
+                        Text("ArduinoDroid Lite", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                Text("Boards", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Boards", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    IconButton(onClick = { }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color(0xFF8EA6D6), modifier = Modifier.size(16.dp))
+                    }
+                }
                 Spacer(modifier = Modifier.height(10.dp))
 
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     items(boards) { (board, chip) ->
                         val selected = selectedBoard == board
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    if (selected) Color(0xFF1F4A79) else Color(0xFF121E2D)
-                                )
+                                .background(if (selected) Color(0xFF1F4A79) else Color(0xFF121E2D))
                                 .border(
                                     width = 1.dp,
                                     color = if (selected) Color(0xFF62A5FF) else Color(0xFF2A3D5C),
@@ -151,15 +191,25 @@ fun ArduinoDroidApp() {
                                 .padding(horizontal = 14.dp, vertical = 12.dp)
                         ) {
                             Column {
-                                Text(board, color = Color.White)
-                                Text(chip, color = Color(0xFF9FB6DC), fontSize = 12.sp)
+                                Text(board, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(chip, color = Color(0xFF9FB6DC), fontSize = 10.sp)
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
-                Text("Files", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Files", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    IconButton(onClick = { }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color(0xFF8EA6D6), modifier = Modifier.size(16.dp))
+                    }
+                }
                 Spacer(modifier = Modifier.height(10.dp))
 
                 files.forEach { file ->
@@ -175,7 +225,7 @@ fun ArduinoDroidApp() {
                             )
                             .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
-                        Text(file, color = Color.White)
+                        Text(file, color = Color.White, fontSize = 11.sp)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -183,226 +233,388 @@ fun ArduinoDroidApp() {
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1.9f)
+                    .fillMaxHeight()
+                    .weight(1f)
+                    .background(Color(0xFF08111D))
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(14.dp))
                         .background(Color(0xFF0D1727))
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                        .border(1.dp, Color(0xFF2A3D5C), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column {
-                        Text("Project", color = Color(0xFF8EA6D6), fontSize = 10.sp, letterSpacing = 0.8.sp)
-                        Text("sketch.ino", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("Project", color = Color(0xFF8EA6D6), fontSize = 9.sp, letterSpacing = 0.6.sp, fontWeight = FontWeight.SemiBold)
+                        Text(files[selectedFileTab], color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(
-                            onClick = { },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A2638))
-                        ) { Text("Save") }
-                        Button(
-                            onClick = { },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF59A9FF))
-                        ) { Icon(Icons.Default.PlayArrow, contentDescription = null); Text("Compile") }
-                        Button(
-                            onClick = { },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2EC699))
-                        ) { Icon(Icons.Default.Bolt, contentDescription = null); Text("Upload") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A2638)), modifier = Modifier.height(36.dp)) {
+                            Text("Save", fontSize = 11.sp)
+                        }
+                        Button(onClick = { }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF59A9FF)), modifier = Modifier.height(36.dp)) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Text("Compile", fontSize = 11.sp)
+                        }
+                        Button(onClick = { }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2EC699)), modifier = Modifier.height(36.dp)) {
+                            Icon(Icons.Default.Bolt, contentDescription = null)
+                            Text("Upload", fontSize = 11.sp)
+                        }
                     }
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1727)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A3D5C))
+                TabRow(
+                    selectedTabIndex = selectedFileTab,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                        .background(Color(0xFF0D1727)),
+                    containerColor = Color(0xFF0D1727),
+                    contentColor = Color.White
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
+                    files.forEachIndexed { index, file ->
+                        Tab(
+                            selected = selectedFileTab == index,
+                            onClick = { selectedFileTab = index },
+                            modifier = Modifier.background(if (selectedFileTab == index) Color(0xFF162A3D) else Color.Transparent)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(file, fontSize = 11.sp, fontWeight = if (selectedFileTab == index) FontWeight.SemiBold else FontWeight.Normal)
+                                if (selectedFileTab == index) {
+                                    IconButton(onClick = { }, modifier = Modifier.size(16.dp)) {
+                                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(12.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0D1727))
+                        .border(1.dp, Color(0xFF2A3D5C), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Column {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(selectedBoard, color = Color.White, fontWeight = FontWeight.SemiBold)
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(Color(0xFF263D55))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text("READY", color = Color(0xFF7FEAB1), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(selectedBoard, color = Color(0xFF8EA6D6), fontSize = 10.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("${arduinoCode.lines().size} lines", color = Color(0xFF8EA6D6), fontSize = 10.sp)
+                                Text("${arduinoCode.length} chars", color = Color(0xFF8EA6D6), fontSize = 10.sp)
                             }
                         }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color(0xFF08131D))
-                                .padding(14.dp)
-                        ) {
-                            androidx.compose.foundation.text.BasicTextField(
-                                value = code,
-                                onValueChange = { code = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                textStyle = androidx.compose.ui.text.TextStyle(
-                                    color = Color(0xFFDCE7FF),
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp,
-                                )
-                            )
+                        Divider(color = Color(0xFF2A3D5C), thickness = 1.dp, modifier = Modifier.padding(vertical = 8.dp))
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            items(arduinoCode.lines().size) { lineIndex ->
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        "${lineIndex + 1}",
+                                        color = Color(0xFF5A6D8A),
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.width(30.dp).padding(end = 8.dp),
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Text(
+                                        arduinoCode.lines().getOrNull(lineIndex) ?: "",
+                                        color = Color(0xFFDCE7FF),
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                            }
                         }
                     }
                 }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Card(
-                        modifier = Modifier.weight(0.75f),
+                        modifier = Modifier.weight(0.6f),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1727)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A3D5C))
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Board config", color = Color(0xFF8EA6D6), fontSize = 10.sp, letterSpacing = 0.8.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(selectedBoard, color = Color.White, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text("Chip: ${boards.first { it.first == selectedBoard }.second}", color = Color(0xFFDFE9FF))
-                            Text("Voltage: 5V", color = Color(0xFFDFE9FF))
-                            Text("Memory: 32 KB", color = Color(0xFFDFE9FF))
-                        }
-                    }
-
-                    Card(
-                        modifier = Modifier.weight(1.25f),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1727)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A3D5C))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Serial Monitor", color = Color.White, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Serial Monitor", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+                                Text("9600", color = Color(0xFF8EA6D6), fontSize = 10.sp)
+                            }
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(Color(0xFF08131D))
-                                    .padding(12.dp)
+                                    .padding(10.dp)
+                                    .verticalScroll(rememberScrollState())
                             ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("[INFO] Device connected successfully.", color = Color(0xFFDDE8FF))
-                                    Text("[INFO] Board: Arduino Uno", color = Color(0xFFDDE8FF))
-                                    Text("[INFO] Ready for sketch upload.", color = Color(0xFFDDE8FF))
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("[INFO] Device connected", color = Color(0xFFDDE8FF), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    Text("[INFO] Board: $selectedBoard", color = Color(0xFFDDE8FF), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    Text("POT:${potValue.toInt()}", color = Color(0xFF7FEAB1), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    Text("POT:${(potValue + 10).toInt()}", color = Color(0xFF7FEAB1), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    Text("MOSFET:${if (mosfetLoadOn) "ON" else "OFF"}", color = Color(0xFF7FEAB1), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                                 }
+                            }
+                            Button(onClick = { }, modifier = Modifier.fillMaxWidth().height(28.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A2638))) {
+                                Text("Clear", fontSize = 10.sp)
                             }
                         }
                     }
+
+                    ElectronicSimulator(
+                        modifier = Modifier.weight(0.4f),
+                        led13On = led13On,
+                        led12On = led12On,
+                        buttonPressed = buttonPressed,
+                        mosfetGateOn = mosfetGateOn,
+                        mosfetLoadOn = mosfetLoadOn,
+                        potValue = potValue,
+                        tempValue = tempValue,
+                        servoAngle = servoAngle,
+                        onLed13Toggle = { led13On = !led13On },
+                        onLed12Toggle = { led12On = !led12On },
+                        onButtonToggle = { buttonPressed = !buttonPressed },
+                        onMosfetGateToggle = { mosfetGateOn = !mosfetGateOn },
+                        onPotChange = { potValue = it },
+                        onTempChange = { tempValue = it },
+                        onServoChange = { servoAngle = it }
+                    )
                 }
+            }
+        }
+    }
+}
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1727)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A3D5C))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Wokwi-inspired circuit", color = Color.White, fontWeight = FontWeight.SemiBold)
+@Composable
+fun ElectronicSimulator(
+    modifier: Modifier = Modifier,
+    led13On: Boolean,
+    led12On: Boolean,
+    buttonPressed: Boolean,
+    mosfetGateOn: Boolean,
+    mosfetLoadOn: Boolean,
+    potValue: Float,
+    tempValue: Float,
+    servoAngle: Float,
+    onLed13Toggle: () -> Unit,
+    onLed12Toggle: () -> Unit,
+    onButtonToggle: () -> Unit,
+    onMosfetGateToggle: () -> Unit,
+    onPotChange: (Float) -> Unit,
+    onTempChange: (Float) -> Unit,
+    onServoChange: (Float) -> Unit,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1727)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A3D5C))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Circuit Sim", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
 
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(Color(0xFF0B1724))
-                                .padding(16.dp)
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(18.dp))
-                                        .background(Color(0xFF162433))
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("ATmega328P", color = Color.White, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            listOf("D0", "D1", "D2", "A0", "A1", "5V", "GND").forEach { pin ->
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(20.dp))
-                                                        .background(Color(0xFF253D56))
-                                                        .padding(horizontal = 8.dp, vertical = 5.dp)
-                                                ) {
-                                                    Text(pin, color = Color.White, fontSize = 10.sp)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF162A3D))
+                    .padding(12.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ComponentVisualization(label = "LED13", isActive = led13On, type = "led", onClick = onLed13Toggle)
+                        ComponentVisualization(label = "LED12", isActive = led12On, type = "led", onClick = onLed12Toggle)
+                    }
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(42.dp)
-                                                .clip(CircleShape)
-                                                .background(if (ledOn) Color(0xFFFFD54A) else Color(0xFF5D6B82))
-                                        )
-                                        Text("LED13", color = Color.White)
-                                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ComponentVisualization(label = "BTN", isActive = buttonPressed, type = "button", onClick = onButtonToggle)
+                    }
 
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(42.dp)
-                                                .clip(CircleShape)
-                                                .background(if (buttonPressed) Color(0xFF51D39A) else Color(0xFF5D6B82))
-                                        )
-                                        Text("BTN", color = Color.White)
-                                    }
+                    MosfetVisualization(
+                        gateOn = mosfetGateOn,
+                        loadOn = mosfetLoadOn,
+                        onGateToggle = onMosfetGateToggle
+                    )
 
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(42.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(0xFF5D6B82))
-                                        )
-                                        Text("POT ${potValue.toInt()}%", color = Color.White)
-                                    }
-                                }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("POT", color = Color(0xFF8EA6D6), fontSize = 9.sp)
+                        Slider(value = potValue, onValueChange = onPotChange, valueRange = 0f..100f, modifier = Modifier.fillMaxWidth())
+                        Text("${potValue.toInt()}%", color = Color(0xFF8EA6D6), fontSize = 8.sp)
+                    }
 
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Button(onClick = { ledOn = !ledOn }) { Text("Toggle LED") }
-                                    Button(onClick = { buttonPressed = !buttonPressed }) { Text("Button") }
-                                }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("TEMP", color = Color(0xFF8EA6D6), fontSize = 9.sp)
+                        Slider(value = tempValue, onValueChange = onTempChange, valueRange = 0f..100f, modifier = Modifier.fillMaxWidth())
+                        Text("${tempValue.toInt()}°C", color = Color(0xFF8EA6D6), fontSize = 8.sp)
+                    }
 
-                                Slider(
-                                    value = potValue,
-                                    onValueChange = { potValue = it },
-                                    valueRange = 0f..100f,
-                                )
-                            }
-                        }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("SERVO", color = Color(0xFF8EA6D6), fontSize = 9.sp)
+                        Slider(value = servoAngle, onValueChange = onServoChange, valueRange = 0f..180f, modifier = Modifier.fillMaxWidth())
+                        Text("${servoAngle.toInt()}°", color = Color(0xFF8EA6D6), fontSize = 8.sp)
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ComponentVisualization(
+    label: String,
+    isActive: Boolean,
+    type: String,
+    onClick: () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isActive) Color(0xFF2A4A6F) else Color(0xFF1A2A3F))
+            .border(1.dp, if (isActive) Color(0xFF62A5FF) else Color(0xFF3A4A6F), RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(
+                    when (type) {
+                        "led" -> if (isActive) Color(0xFFFFD54A) else Color(0xFF5D6B82)
+                        "button" -> if (isActive) Color(0xFF51D39A) else Color(0xFF5D6B82)
+                        else -> Color(0xFF5D6B82)
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (type == "led" && isActive) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFFF06E))
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun MosfetVisualization(
+    gateOn: Boolean,
+    loadOn: Boolean,
+    onGateToggle: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF1A2A3F))
+            .border(1.dp, Color(0xFF3A4A6F), RoundedCornerShape(12.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("N-MOSFET", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+            Button(
+                onClick = onGateToggle,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (gateOn) Color(0xFF2EC699) else Color(0xFF3A4A6F)
+                ),
+                modifier = Modifier.height(26.dp)
+            ) {
+                Text(if (gateOn) "Gate ON" else "Gate OFF", fontSize = 9.sp)
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF2B3C52))
+                    .border(1.dp, Color(0xFF5E7AA4), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("G", color = if (gateOn) Color(0xFF7FEAB1) else Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(width = 70.dp, height = 18.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (loadOn) Color(0xFF3BA779) else Color(0xFF4B5A70))
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(if (loadOn) Color(0xFFFFD54A) else Color(0xFF5D6B82))
+            )
+        }
+
+        Text(
+            text = "Load ${if (loadOn) "ACTIVE" else "OFF"}",
+            color = if (loadOn) Color(0xFF7FEAB1) else Color(0xFF8EA6D6),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
