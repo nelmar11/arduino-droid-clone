@@ -94,20 +94,41 @@ fun ArduinoDroidApp() {
     var led12On by remember { mutableStateOf(false) }
     var buttonPressed by remember { mutableStateOf(false) }
     var mosfetGateOn by remember { mutableStateOf(false) }
+    var relayOn by remember { mutableStateOf(false) }
+    var motorRunning by remember { mutableStateOf(false) }
+    var buzzerOn by remember { mutableStateOf(false) }
+    var capacitorCharged by remember { mutableStateOf(false) }
+    var resistorActive by remember { mutableStateOf(false) }
     var potValue by remember { mutableFloatStateOf(58f) }
     var tempValue by remember { mutableFloatStateOf(24f) }
     var servoAngle by remember { mutableFloatStateOf(90f) }
 
     val mosfetLoadOn = mosfetGateOn && potValue > 25f
+    val electronicParts = listOf(
+        "LED" to led13On,
+        "Resistor" to resistorActive,
+        "Capacitor" to capacitorCharged,
+        "MOSFET" to mosfetGateOn,
+        "Switch" to buttonPressed,
+        "Pot" to (potValue > 30f),
+        "Relay" to relayOn,
+        "Motor" to motorRunning,
+        "Buzzer" to buzzerOn,
+        "Servo" to (servoAngle > 45f),
+        "Sensor" to (tempValue > 20f),
+        "Diode" to mosfetLoadOn
+    )
 
     val arduinoCode = """const int LED_PIN = 13;
 const int MOSFET_GATE = 9;
 const int BUTTON_PIN = 2;
 const int POT_PIN = A0;
+const int RELAY_PIN = 7;
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
   pinMode(MOSFET_GATE, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT);
   Serial.begin(9600);
 }
@@ -118,9 +139,10 @@ void loop() {
   bool gate = (sensor > 300) || btnState;
 
   analogWrite(MOSFET_GATE, gate ? 255 : 0);
+  digitalWrite(RELAY_PIN, gate ? HIGH : LOW);
   digitalWrite(LED_PIN, gate ? HIGH : LOW);
 
-  Serial.print("POT:");
+  Serial.print(\"POT:\");
   Serial.println(sensor);
   delay(100);
 }"""
@@ -382,8 +404,9 @@ void loop() {
                                     Text("[INFO] Device connected", color = Color(0xFFDDE8FF), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                                     Text("[INFO] Board: $selectedBoard", color = Color(0xFFDDE8FF), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                                     Text("POT:${potValue.toInt()}", color = Color(0xFF7FEAB1), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                                    Text("POT:${(potValue + 10).toInt()}", color = Color(0xFF7FEAB1), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                                     Text("MOSFET:${if (mosfetLoadOn) "ON" else "OFF"}", color = Color(0xFF7FEAB1), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    Text("RELAY:${if (relayOn) "ON" else "OFF"}", color = Color(0xFF7FEAB1), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    Text("MOTOR:${if (motorRunning) "RUN" else "STOP"}", color = Color(0xFF7FEAB1), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                                 }
                             }
                             Button(onClick = { }, modifier = Modifier.fillMaxWidth().height(28.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A2638))) {
@@ -399,13 +422,24 @@ void loop() {
                         buttonPressed = buttonPressed,
                         mosfetGateOn = mosfetGateOn,
                         mosfetLoadOn = mosfetLoadOn,
+                        relayOn = relayOn,
+                        motorRunning = motorRunning,
+                        buzzerOn = buzzerOn,
+                        capacitorCharged = capacitorCharged,
+                        resistorActive = resistorActive,
                         potValue = potValue,
                         tempValue = tempValue,
                         servoAngle = servoAngle,
+                        electronicParts = electronicParts,
                         onLed13Toggle = { led13On = !led13On },
                         onLed12Toggle = { led12On = !led12On },
                         onButtonToggle = { buttonPressed = !buttonPressed },
                         onMosfetGateToggle = { mosfetGateOn = !mosfetGateOn },
+                        onRelayToggle = { relayOn = !relayOn },
+                        onMotorToggle = { motorRunning = !motorRunning },
+                        onBuzzerToggle = { buzzerOn = !buzzerOn },
+                        onCapacitorToggle = { capacitorCharged = !capacitorCharged },
+                        onResistorToggle = { resistorActive = !resistorActive },
                         onPotChange = { potValue = it },
                         onTempChange = { tempValue = it },
                         onServoChange = { servoAngle = it }
@@ -424,13 +458,24 @@ fun ElectronicSimulator(
     buttonPressed: Boolean,
     mosfetGateOn: Boolean,
     mosfetLoadOn: Boolean,
+    relayOn: Boolean,
+    motorRunning: Boolean,
+    buzzerOn: Boolean,
+    capacitorCharged: Boolean,
+    resistorActive: Boolean,
     potValue: Float,
     tempValue: Float,
     servoAngle: Float,
+    electronicParts: List<Pair<String, Boolean>>,
     onLed13Toggle: () -> Unit,
     onLed12Toggle: () -> Unit,
     onButtonToggle: () -> Unit,
     onMosfetGateToggle: () -> Unit,
+    onRelayToggle: () -> Unit,
+    onMotorToggle: () -> Unit,
+    onBuzzerToggle: () -> Unit,
+    onCapacitorToggle: () -> Unit,
+    onResistorToggle: () -> Unit,
     onPotChange: (Float) -> Unit,
     onTempChange: (Float) -> Unit,
     onServoChange: (Float) -> Unit,
@@ -446,7 +491,7 @@ fun ElectronicSimulator(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Circuit Sim", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+            Text("Electronic Parts", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
 
             Box(
                 modifier = Modifier
@@ -480,6 +525,18 @@ fun ElectronicSimulator(
                         onGateToggle = onMosfetGateToggle
                     )
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PartChip(label = "Relay", active = relayOn, onClick = onRelayToggle)
+                        PartChip(label = "Motor", active = motorRunning, onClick = onMotorToggle)
+                        PartChip(label = "Buzzer", active = buzzerOn, onClick = onBuzzerToggle)
+                        PartChip(label = "Cap", active = capacitorCharged, onClick = onCapacitorToggle)
+                        PartChip(label = "Res", active = resistorActive, onClick = onResistorToggle)
+                    }
+
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("POT", color = Color(0xFF8EA6D6), fontSize = 9.sp)
                         Slider(value = potValue, onValueChange = onPotChange, valueRange = 0f..100f, modifier = Modifier.fillMaxWidth())
@@ -496,6 +553,19 @@ fun ElectronicSimulator(
                         Text("SERVO", color = Color(0xFF8EA6D6), fontSize = 9.sp)
                         Slider(value = servoAngle, onValueChange = onServoChange, valueRange = 0f..180f, modifier = Modifier.fillMaxWidth())
                         Text("${servoAngle.toInt()}°", color = Color(0xFF8EA6D6), fontSize = 8.sp)
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Component Library", color = Color(0xFF8EA6D6), fontSize = 9.sp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            electronicParts.forEach { (label, active) ->
+                                PartChip(label = label, active = active, onClick = {})
+                            }
+                        }
                     }
                 }
             }
@@ -543,6 +613,25 @@ fun ComponentVisualization(
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun PartChip(
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (active) Color(0xFF2A4A6F) else Color(0xFF233448))
+            .border(1.dp, if (active) Color(0xFF62A5FF) else Color(0xFF3A4A6F), RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
