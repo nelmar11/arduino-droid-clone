@@ -26,6 +26,8 @@ const projectFiles: ProjectFile[] = [
   { name: 'board.json', language: 'JSON' },
 ];
 
+const pinMap = ['D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'A0', 'A1', 'A2', 'A3', '5V', 'GND', 'VIN'];
+
 const initialSketch = `const int ledPin = 13;
 
 void setup() {
@@ -56,6 +58,9 @@ function App() {
   const [sketch, setSketch] = useState(initialSketch);
   const [consoleLines, setConsoleLines] = useState<string[]>(initialConsole);
   const [status, setStatus] = useState<'ready' | 'compiling' | 'uploading' | 'error'>('ready');
+  const [simLedOn, setSimLedOn] = useState(false);
+  const [simButtonPressed, setSimButtonPressed] = useState(false);
+  const [simPotValue, setSimPotValue] = useState(58);
 
   const compileStats = useMemo(() => {
     const lineCount = sketch.split('\n').length;
@@ -67,41 +72,46 @@ function App() {
     };
   }, [selectedBoard.name, sketch]);
 
+  const appendConsole = (message: string) => {
+    setConsoleLines((current) => [...current.slice(-8), message]);
+  };
+
   const handleCompile = () => {
     setStatus('compiling');
-    setConsoleLines([
-      '[INFO] Compiling sketch...',
-      `[INFO] Target board: ${selectedBoard.name}`,
-      '[INFO] Analyzing dependencies...',
-      '[INFO] Generating binary...',
-    ]);
+    appendConsole('[INFO] Compiling sketch...');
+    appendConsole(`[INFO] Target board: ${selectedBoard.name}`);
+    appendConsole('[INFO] Checking Wokwi-style circuit state...');
 
     window.setTimeout(() => {
       setStatus('ready');
-      setConsoleLines((current) => [
-        ...current,
-        '[SUCCESS] Build successful. Binary generated in ./build/arduino_droid_lite.ino.bin',
-        '[INFO] Memory usage: 18% of program storage space.',
-      ]);
+      appendConsole('[SUCCESS] Build successful. Binary generated in ./build/wokwi_arduino_demo.ino.bin');
+      appendConsole(`[INFO] Memory usage: ${Math.max(12, 18 + simPotValue / 10)}% of program storage space.`);
     }, 1200);
   };
 
   const handleUpload = () => {
     setStatus('uploading');
-    setConsoleLines([
-      '[INFO] Preparing upload...',
-      '[INFO] Opening serial port...',
-      '[INFO] Transferring sketch...',
-    ]);
+    appendConsole('[INFO] Preparing upload...');
+    appendConsole(`[INFO] Uploading to ${selectedBoard.name}...`);
+    appendConsole('[INFO] Serial monitor opening...');
 
     window.setTimeout(() => {
       setStatus('ready');
-      setConsoleLines((current) => [
-        ...current,
-        '[SUCCESS] Upload complete. Device reset successfully.',
-        '[MONITOR] Serial monitor connected.',
-      ]);
+      appendConsole('[SUCCESS] Upload complete. Device reset successfully.');
+      appendConsole('[MONITOR] Simulation active: LED13 is now ' + (simLedOn ? 'ON' : 'OFF'));
     }, 1400);
+  };
+
+  const handleLedToggle = () => {
+    const next = !simLedOn;
+    setSimLedOn(next);
+    appendConsole(`[SIM] LED13 toggled ${next ? 'ON' : 'OFF'}`);
+  };
+
+  const handleButtonToggle = () => {
+    const next = !simButtonPressed;
+    setSimButtonPressed(next);
+    appendConsole(`[SIM] Button state ${next ? 'pressed' : 'released'}`);
   };
 
   return (
@@ -178,9 +188,63 @@ function App() {
           </div>
         </header>
 
+        <section className="simulator-panel">
+          <div className="simulator-header">
+            <div>
+              <p className="eyebrow">Circuit simulation</p>
+              <h3>Wokwi-inspired live board</h3>
+            </div>
+            <span className={`status-badge status-${status}`}>{status.toUpperCase()}</span>
+          </div>
+
+          <div className="board-visual">
+            <div className="board-shadow" />
+            <div className="microcontroller">
+              <div className="chip-name">{selectedBoard.chip}</div>
+              <div className="pin-row">
+                {pinMap.map((pin) => (
+                  <span key={pin} className="pin-tag">
+                    {pin}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="components-row">
+              <div className={`component led ${simLedOn ? 'active' : ''}`}>
+                <span className="component-label">LED13</span>
+                <span className="led-light" />
+              </div>
+
+              <div className={`component button ${simButtonPressed ? 'pressed' : ''}`}>
+                <span className="component-label">BTN</span>
+              </div>
+
+              <div className="component sensor">
+                <span className="component-label">POT</span>
+                <strong>{simPotValue}%</strong>
+              </div>
+            </div>
+
+            <div className="sim-controls">
+              <button type="button" onClick={handleLedToggle}>Toggle LED</button>
+              <button type="button" onClick={handleButtonToggle}>Button</button>
+              <label>
+                <span>Pot</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={simPotValue}
+                  onChange={(event) => setSimPotValue(Number(event.target.value))}
+                />
+              </label>
+            </div>
+          </div>
+        </section>
+
         <section className="editor-panel">
           <div className="editor-toolbar">
-            <span className="status-badge status-${status}">{status.toUpperCase()}</span>
             <span>{compileStats.board}</span>
             <span>{compileStats.lineCount} lines</span>
             <span>{compileStats.charCount} chars</span>
@@ -226,3 +290,4 @@ function App() {
 }
 
 export default App;
+
