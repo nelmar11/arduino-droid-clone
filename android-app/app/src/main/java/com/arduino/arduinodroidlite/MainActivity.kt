@@ -167,7 +167,7 @@ void loop() {
                             .size(44.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(
-                                Brush.linearGradient(
+                                brush = Brush.linearGradient(
                                     colors = listOf(Color(0xFF52D1FF), Color(0xFF5D7BFF))
                                 )
                             ),
@@ -491,68 +491,81 @@ fun ElectronicSimulator(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Electronic Parts", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+            Text("Wiring Lab", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF162A3D))
-                    .padding(12.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF0B1724))
+                    .padding(8.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ComponentVisualization(label = "LED13", isActive = led13On, type = "led", onClick = onLed13Toggle)
-                        ComponentVisualization(label = "LED12", isActive = led12On, type = "led", onClick = onLed12Toggle)
+                        Text("5V", color = Color(0xFF9BD4FF), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("GND", color = Color(0xFF9BD4FF), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF132535))
+                            .border(1.dp, Color(0xFF2C4968), RoundedCornerShape(12.dp))
+                            .padding(8.dp)
                     ) {
-                        ComponentVisualization(label = "BTN", isActive = buttonPressed, type = "button", onClick = onButtonToggle)
-                    }
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircuitModule("Arduino", true, onClick = {})
+                                CircuitModule("MOSFET", mosfetGateOn, onClick = onMosfetGateToggle)
+                                CircuitModule("LED", led13On, onClick = onLed13Toggle)
+                            }
 
-                    MosfetVisualization(
-                        gateOn = mosfetGateOn,
-                        loadOn = mosfetLoadOn,
-                        onGateToggle = onMosfetGateToggle
-                    )
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircuitModule("BTN", buttonPressed, onClick = onButtonToggle)
+                                CircuitModule("RELAY", relayOn, onClick = onRelayToggle)
+                                CircuitModule("MOTOR", motorRunning, onClick = onMotorToggle)
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircuitModule("POT", potValue > 30f, onClick = { onPotChange((potValue + 10f).coerceAtMost(100f)) })
+                                CircuitModule("CAP", capacitorCharged, onClick = onCapacitorToggle)
+                                CircuitModule("BUZZ", buzzerOn, onClick = onBuzzerToggle)
+                            }
+                        }
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        PartChip(label = "Relay", active = relayOn, onClick = onRelayToggle)
-                        PartChip(label = "Motor", active = motorRunning, onClick = onMotorToggle)
-                        PartChip(label = "Buzzer", active = buzzerOn, onClick = onBuzzerToggle)
-                        PartChip(label = "Cap", active = capacitorCharged, onClick = onCapacitorToggle)
-                        PartChip(label = "Res", active = resistorActive, onClick = onResistorToggle)
-                    }
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("POT", color = Color(0xFF8EA6D6), fontSize = 9.sp)
-                        Slider(value = potValue, onValueChange = onPotChange, valueRange = 0f..100f, modifier = Modifier.fillMaxWidth())
-                        Text("${potValue.toInt()}%", color = Color(0xFF8EA6D6), fontSize = 8.sp)
-                    }
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("TEMP", color = Color(0xFF8EA6D6), fontSize = 9.sp)
-                        Slider(value = tempValue, onValueChange = onTempChange, valueRange = 0f..100f, modifier = Modifier.fillMaxWidth())
-                        Text("${tempValue.toInt()}°C", color = Color(0xFF8EA6D6), fontSize = 8.sp)
-                    }
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("SERVO", color = Color(0xFF8EA6D6), fontSize = 9.sp)
-                        Slider(value = servoAngle, onValueChange = onServoChange, valueRange = 0f..180f, modifier = Modifier.fillMaxWidth())
-                        Text("${servoAngle.toInt()}°", color = Color(0xFF8EA6D6), fontSize = 8.sp)
+                        CircuitWire(active = mosfetLoadOn)
+                        CircuitWire(active = relayOn)
+                        CircuitWire(active = motorRunning)
+                        CircuitWire(active = buzzerOn)
                     }
 
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -569,8 +582,70 @@ fun ElectronicSimulator(
                     }
                 }
             }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("POT", color = Color(0xFF8EA6D6), fontSize = 9.sp)
+                    Slider(value = potValue, onValueChange = onPotChange, valueRange = 0f..100f, modifier = Modifier.fillMaxWidth())
+                    Text("${potValue.toInt()}%", color = Color(0xFF8EA6D6), fontSize = 8.sp)
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("TEMP", color = Color(0xFF8EA6D6), fontSize = 9.sp)
+                    Slider(value = tempValue, onValueChange = onTempChange, valueRange = 0f..100f, modifier = Modifier.fillMaxWidth())
+                    Text("${tempValue.toInt()}°C", color = Color(0xFF8EA6D6), fontSize = 8.sp)
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("SERVO", color = Color(0xFF8EA6D6), fontSize = 9.sp)
+                    Slider(value = servoAngle, onValueChange = onServoChange, valueRange = 0f..180f, modifier = Modifier.fillMaxWidth())
+                    Text("${servoAngle.toInt()}°", color = Color(0xFF8EA6D6), fontSize = 8.sp)
+                }
+            }
         }
     }
+}
+
+@Composable
+fun CircuitModule(
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .width(76.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (active) Color(0xFF1B3C52) else Color(0xFF1E2E3F))
+            .border(1.dp, if (active) Color(0xFF63C4FF) else Color(0xFF405A78), RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(if (active) Color(0xFFFFD54A) else Color(0xFF5D6B82)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("•", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+        Text(label, color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun CircuitWire(active: Boolean) {
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .height(10.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (active) Color(0xFF39D98A) else Color(0xFF3D5268))
+            .border(1.dp, if (active) Color(0xFF7FEAB1) else Color(0xFF557292), RoundedCornerShape(999.dp))
+    )
 }
 
 @Composable
